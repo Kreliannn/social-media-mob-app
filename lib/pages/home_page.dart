@@ -1,340 +1,149 @@
+// lib/pages/home_page.dart
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
-import 'profile_page.dart';
+import '../services/service.dart';
 import 'login_page.dart';
+import 'profile_page.dart';
+import 'other_profile_page.dart';
+import 'add_post_widget.dart';
+import 'convos_page.dart';
 
 class HomePage extends StatefulWidget {
-  HomePage({Key? key}) : super(key: key);
-
+  const HomePage({super.key});
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  final AuthService _auth = AuthService();
-  Map<String, dynamic>? _userProfile;
-  bool _isLoading = true;
+  final _service = AppService();
 
-  @override
-  void initState() {
-    super.initState();
-    _loadProfile();
+  void _logout() async {
+    await _service.logout();
+    if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const LoginPage()));
   }
 
-  Future<void> _loadProfile() async {
-    final profile = await _auth.getProfile();
-    if (mounted) {
-      setState(() {
-        _userProfile = profile;
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _handleLogout() async {
-    final confirm = await showDialog<bool>(
+  void _showComments(BuildContext context, DocumentSnapshot post) {
+    final comments = List.from(post['comments'] ?? []);
+    final ctrl = TextEditingController();
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          'Log Out',
-          style: TextStyle(
-            color: Color(0xFF25343F),
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: const Text(
-          'Are you sure you want to log out?',
-          style: TextStyle(color: Colors.black87),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: Colors.grey),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF25343F),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Log Out'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      await _auth.logout();
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => LoginPage()),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final displayName = _userProfile?['name'] ?? 'User';
-    final initials = displayName.isNotEmpty
-        ? displayName
-            .trim()
-            .split(' ')
-            .map((e) => e[0])
-            .take(2)
-            .join()
-            .toUpperCase()
-        : '?';
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFEAEFEF),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFEAEFEF),
-        elevation: 0,
-        centerTitle: true,
-        title: const Text(
-          'Home',
-          style: TextStyle(
-            color: Color(0xFF25343F),
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1,
-          ),
-        ),
-        iconTheme: const IconThemeData(color: Color(0xFF25343F)),
-      ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(
-                color: Color(0xFF25343F),
-              ),
-            )
-          : SingleChildScrollView(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: const LinearGradient(
-                        colors: [
-                          Color(0xFF25343F),
-                          Color(0xFF3A4F5E),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.15),
-                          blurRadius: 18,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                    child: CircleAvatar(
-                      radius: 55,
-                      backgroundColor: Colors.white,
-                      child: Text(
-                        initials,
-                        style: const TextStyle(
-                          fontSize: 36,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF25343F),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-                  Text(
-                    displayName,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  const Text(
-                    "Welcome back",
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF25343F),
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: _ActionTile(
-                          icon: Icons.account_circle_outlined,
-                          label: 'Profile',
-                          color: const Color(0xFF25343F),
-                          onTap: () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) => ProfilePage()),
-                            );
-                            _loadProfile();
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 15),
-                      Expanded(
-                        child: _ActionTile(
-                          icon: Icons.logout_rounded,
-                          label: 'Logout',
-                          color: const Color(0xFF25343F),
-                          onTap: _handleLogout,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 30),
-                  const _FeedCard(
-                    title: 'New Features',
-                    subtitle: 'Check out the latest updates!',
-                    iconColor: Color(0xFF25343F),
-                  ),
-                  const _FeedCard(
-                    title: 'Tips & Tricks',
-                    subtitle: 'Get the most out of your account.',
-                    iconColor: Color(0xFF25343F),
-                  ),
-                ],
-              ),
-            ),
-    );
-  }
-}
-
-class _ActionTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final Color color;
-
-  const _ActionTile({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 15,
-              offset: const Offset(0, 5),
-            )
-          ],
-        ),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 16, right: 16, top: 16),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            CircleAvatar(
-              radius: 25,
-              backgroundColor: color,
-              child: Icon(icon, color: Colors.white, size: 28),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              label,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            )
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _FeedCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final Color iconColor;
-
-  const _FeedCard({
-    required this.title,
-    required this.subtitle,
-    required this.iconColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFFBFC9D1),
-            Color(0xFFFFFFFF),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.star, color: iconColor),
-          const SizedBox(width: 15),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            const Text('Comments', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 8),
+            ...comments.map((c) => ListTile(
+              dense: true,
+              leading: const Icon(Icons.person, size: 20),
+              title: Text(c['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              subtitle: Text(c['text'] ?? ''),
+            )),
+            Row(
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.black54,
-                  ),
+                Expanded(child: TextField(controller: ctrl, decoration: const InputDecoration(hintText: 'Write a comment...'))),
+                IconButton(
+                  icon: const Icon(Icons.send, color: Colors.deepPurple),
+                  onPressed: () async {
+                    if (ctrl.text.trim().isEmpty) return;
+                    await _service.commentPost(post.id, ctrl.text.trim());
+                    ctrl.clear();
+                    if (mounted) Navigator.pop(context);
+                  },
                 ),
               ],
             ),
-          ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.deepPurple,
+        title: const Text('Feed', style: TextStyle(color: Colors.white)),
+        actions: [
+          IconButton(icon: const Icon(Icons.chat_bubble_outline, color: Colors.white), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ConvosPage()))),
+          IconButton(icon: const Icon(Icons.person, color: Colors.white), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfilePage()))),
+          IconButton(icon: const Icon(Icons.logout, color: Colors.white), onPressed: _logout),
         ],
+      ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: _service.getPosts(),
+        builder: (context, snap) {
+          if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+          final posts = snap.data!.docs;
+          if (posts.isEmpty) return const Center(child: Text('No posts yet.'));
+          return ListView.builder(
+            itemCount: posts.length,
+            itemBuilder: (context, i) {
+              final post = posts[i];
+              final likes = List.from(post['likes'] ?? []);
+              final comments = List.from(post['comments'] ?? []);
+              final isLiked = likes.contains(_service.currentUid);
+              final isOwner = post['uid'] == _service.currentUid;
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () {
+                              if (!isOwner) {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => OtherProfilePage(uid: post['uid'])));
+                              }
+                            },
+                            child: CircleAvatar(backgroundColor: Colors.deepPurple[100], child: const Icon(Icons.person, color: Colors.deepPurple)),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(post['name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(post['text'] ?? ''),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: Icon(isLiked ? Icons.favorite : Icons.favorite_border, color: isLiked ? Colors.red : Colors.grey),
+                            onPressed: () => _service.likePost(post.id, likes),
+                          ),
+                          Text('${likes.length}'),
+                          const SizedBox(width: 12),
+                          IconButton(icon: const Icon(Icons.comment_outlined, color: Colors.grey), onPressed: () => _showComments(context, post)),
+                          Text('${comments.length}'),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.deepPurple,
+        child: const Icon(Icons.add, color: Colors.white),
+        onPressed: () => showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+          builder: (_) => const AddPostWidget(),
+        ),
       ),
     );
   }

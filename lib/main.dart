@@ -1,6 +1,10 @@
-import 'package:flutter/material.dart';
+// lib/main.dart
+
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'firebase_options.dart';
+import 'pages/home_page.dart';
 import 'pages/login_page.dart';
 
 void main() async {
@@ -8,16 +12,31 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Firebase App',
-      theme: ThemeData(primarySwatch: Colors.blue),
-      home: LoginPage(),
+      title: 'SocialApp',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorSchemeSeed: Colors.deepPurple,
+        useMaterial3: true,
+      ),
+      home: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          }
+          if (snap.hasData) return const HomePage();
+          return const LoginPage();
+        },
+      ),
     );
   }
 }
