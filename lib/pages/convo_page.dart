@@ -118,7 +118,7 @@ class _ConvoPageState extends State<ConvoPage> {
                 CircleAvatar(
                   backgroundColor: Colors.deepPurple,
                   child: IconButton(
-                    icon: const Icon(Icons.send, color: Colors.white, size: 18),
+                    icon: const Icon(Icons.send, color: Colors.white, size: 19),
                     onPressed: _send,
                   ),
                 ),
