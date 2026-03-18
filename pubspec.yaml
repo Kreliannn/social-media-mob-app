@@ -38,6 +38,10 @@ dependencies:
   firebase_auth: ^6.1.4
   cloud_firestore: ^6.1.2
   fluttertoast: ^9.0.0
+  firebase_storage: ^13.1.0
+  image_picker: ^1.2.1
+  video_player: ^2.11.1
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:

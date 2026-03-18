@@ -25,9 +25,13 @@ class _ConvosPageState extends State<ConvosPage> {
       body: StreamBuilder<QuerySnapshot>(
         stream: _service.getConversations(),
         builder: (context, snap) {
-          if (snap.hasError) return Center(child: Text('Error: ${snap.error}'));
-          if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-          if (snap.data!.docs.isEmpty) return const Center(child: Text('No conversations yet.'));
+          if (snap.hasError)
+            return Center(child: Text('Error: ${snap.error}'));
+          if (!snap.hasData)
+            return const Center(child: CircularProgressIndicator());
+          if (snap.data!.docs.isEmpty)
+            return const Center(child: Text('No conversations yet.'));
+
           final convos = snap.data!.docs;
           return ListView.builder(
             itemCount: convos.length,
@@ -41,19 +45,30 @@ class _ConvosPageState extends State<ConvosPage> {
               final names = Map<String, dynamic>.from(c['names'] ?? {});
               final cachedName = names[otherUid] ?? '';
 
-              // fetch real name if cached is empty
+              // Always fetch user to get profile_pic + fallback name
               return FutureBuilder<Map<String, dynamic>?>(
-                future: cachedName.isEmpty ? _service.getUser(otherUid) : null,
+                future: _service.getUser(otherUid),
                 builder: (context, userSnap) {
                   final otherName = cachedName.isNotEmpty
                       ? cachedName
                       : (userSnap.data?['name'] ?? 'User');
+                  final picUrl =
+                      userSnap.data?['profile_pic'] as String? ?? '';
+
                   return ListTile(
                     leading: CircleAvatar(
                       backgroundColor: Colors.deepPurple[100],
-                      child: const Icon(Icons.person, color: Colors.deepPurple),
+                      backgroundImage: picUrl.isNotEmpty
+                          ? NetworkImage(picUrl)
+                          : null,
+                      child: picUrl.isEmpty
+                          ? const Icon(Icons.person,
+                              color: Colors.deepPurple)
+                          : null,
                     ),
-                    title: Text(otherName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    title: Text(otherName,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold)),
                     subtitle: Text(
                       c['lastMessage'] ?? '',
                       maxLines: 1,
@@ -62,7 +77,8 @@ class _ConvosPageState extends State<ConvosPage> {
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => ConvoPage(otherUid: otherUid, otherName: otherName),
+                        builder: (_) => ConvoPage(
+                            otherUid: otherUid, otherName: otherName),
                       ),
                     ),
                   );
