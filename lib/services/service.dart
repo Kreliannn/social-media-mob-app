@@ -21,8 +21,6 @@ class AppService {
 
   // ─── CLOUDINARY UPLOAD ────────────────────────────────────────────────────
 
-  /// Uploads an XFile to Cloudinary and returns the secure download URL.
-  /// Works on both web and mobile — no CORS issues, no credit card needed.
   Future<String> _uploadToCloudinary(XFile xFile) async {
     final bytes = await xFile.readAsBytes();
     final request = http.MultipartRequest('POST', Uri.parse(_uploadUrl))
@@ -74,7 +72,6 @@ class AppService {
     await _db.collection('users').doc(uid).update(data);
   }
 
-  /// Uploads a real profile picture and saves the URL to Firestore.
   Future<void> uploadProfilePic(String uid, XFile xFile) async {
     final url = await _uploadToCloudinary(xFile);
     await _db.collection('users').doc(uid).update({'profile_pic': url});
@@ -93,16 +90,14 @@ class AppService {
     return _db.collection('posts').where('uid', isEqualTo: uid).snapshots();
   }
 
-  /// Text-only post.
   Future<void> addPost(String text) async {
     await addPostWithMedia(text: text, xFile: null, mediaType: 'none');
   }
 
-  /// Creates a post with optional media. Pass xFile=null for text-only.
   Future<void> addPostWithMedia({
     required String text,
     required XFile? xFile,
-    required String mediaType, // 'none' | 'image' | 'video'
+    required String mediaType,
   }) async {
     final user = await getUser(currentUid!);
     String? mediaUrl;
@@ -168,7 +163,6 @@ class AppService {
         .snapshots();
   }
 
-  /// Uploads an XFile to Cloudinary and adds it to the user's album.
   Future<void> addAlbumItem(XFile xFile, String mediaType) async {
     final url = await _uploadToCloudinary(xFile);
     await _db
@@ -243,6 +237,50 @@ class AppService {
     return _db
         .collection('conversations')
         .where('participants', arrayContains: currentUid)
+        .snapshots();
+  }
+
+  // ─── STORIES (MY DAY) ─────────────────────────────────────────────────────
+
+  /// Upload a new story to the global `stories` collection.
+  Future<void> addStory({
+    required XFile xFile,
+    required String mediaType, // 'image' | 'video'
+    required String caption,
+  }) async {
+    final user = await getUser(currentUid!);
+    final url = await _uploadToCloudinary(xFile);
+    await _db.collection('stories').add({
+      'uid': currentUid,
+      'name': user?['name'] ?? '',
+      'profile_pic': user?['profile_pic'] ?? '',
+      'url': url,
+      'mediaType': mediaType,
+      'caption': caption,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Delete own story by document ID.
+  Future<void> deleteStory(String storyId) async {
+    await _db.collection('stories').doc(storyId).delete();
+  }
+
+  /// Stream all stories ordered by newest first.
+  /// No auto-expiry — stories persist until deleted.
+  Stream<QuerySnapshot> getAllStories() {
+    return _db
+        .collection('stories')
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+  }
+
+  /// Stream only the current user's stories.
+  Stream<QuerySnapshot> getMyStories() {
+    return _db
+        .collection('stories')
+        .where('uid', isEqualTo: currentUid)
+        .orderBy('createdAt', descending: true)
         .snapshots();
   }
 }

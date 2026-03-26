@@ -9,6 +9,7 @@ import 'profile_page.dart';
 import 'other_profile_page.dart';
 import 'add_post_widget.dart';
 import 'convos_page.dart';
+import 'my_day_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -93,6 +94,16 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // ── View a single story full-screen ───────────────────────────────────────
+  void _viewStory(BuildContext context, DocumentSnapshot story) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _StoryViewPage(story: story, service: _service),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -101,7 +112,13 @@ class _HomePageState extends State<HomePage> {
         title: const Text('Feed', style: TextStyle(color: Colors.white)),
         actions: [
           IconButton(
-              icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
+              icon: const Icon(Icons.auto_stories, color: Colors.white),
+              tooltip: 'My Day',
+              onPressed: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const MyDayPage()))),
+          IconButton(
+              icon:
+                  const Icon(Icons.chat_bubble_outline, color: Colors.white),
               onPressed: () => Navigator.push(context,
                   MaterialPageRoute(builder: (_) => const ConvosPage()))),
           IconButton(
@@ -116,98 +133,129 @@ class _HomePageState extends State<HomePage> {
       body: StreamBuilder<QuerySnapshot>(
         stream: _service.getPosts(),
         builder: (context, snap) {
-          if (!snap.hasData)
+          if (!snap.hasData) {
             return const Center(child: CircularProgressIndicator());
+          }
           final posts = snap.data!.docs;
-          if (posts.isEmpty)
-            return const Center(child: Text('No posts yet.'));
-          return ListView.builder(
-            itemCount: posts.length,
-            itemBuilder: (context, i) {
-              final post = posts[i];
-              final likes = List.from(post['likes'] ?? []);
-              final comments = List.from(post['comments'] ?? []);
-              final isLiked = likes.contains(_service.currentUid);
-              final isOwner = post['uid'] == _service.currentUid;
-              final mediaUrl = post['mediaUrl'] ?? '';
-              final mediaType = post['mediaType'] ?? 'none';
 
-              return Card(
-                margin: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 6),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // ── Author row ───────────────────────────────────
-                      Row(
-                        children: [
-                          GestureDetector(
-                            onTap: () {
-                              if (!isOwner) {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) => OtherProfilePage(
-                                          uid: post['uid'])),
-                                );
-                              }
-                            },
-                            child: _buildAvatar(post['profile_pic']),
-                          ),
-                          const SizedBox(width: 10),
-                          Text(post['name'] ?? 'Unknown',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-
-                      // ── Text ─────────────────────────────────────────
-                      if ((post['text'] ?? '').isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Text(post['text']),
-                        ),
-
-                      // ── Media ────────────────────────────────────────
-                      if (mediaUrl.isNotEmpty && mediaType == 'image')
-                        _PostImage(url: mediaUrl),
-                      if (mediaUrl.isNotEmpty && mediaType == 'video')
-                        _PostVideo(url: mediaUrl),
-
-                      // ── Actions ──────────────────────────────────────
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: Icon(
-                              isLiked
-                                  ? Icons.favorite
-                                  : Icons.favorite_border,
-                              color: isLiked ? Colors.red : Colors.grey,
-                            ),
-                            onPressed: () =>
-                                _service.likePost(post.id, likes),
-                          ),
-                          Text('${likes.length}'),
-                          const SizedBox(width: 12),
-                          IconButton(
-                            icon: const Icon(Icons.comment_outlined,
-                                color: Colors.grey),
-                            onPressed: () =>
-                                _showComments(context, post),
-                          ),
-                          Text('${comments.length}'),
-                        ],
-                      ),
-                    ],
-                  ),
+          return CustomScrollView(
+            slivers: [
+              // ── Stories row ──────────────────────────────────────────
+              SliverToBoxAdapter(
+                child: _StoriesRow(
+                  service: _service,
+                  onStoryTap: (story) => _viewStory(context, story),
                 ),
-              );
-            },
+              ),
+
+              // ── Posts list ───────────────────────────────────────────
+              posts.isEmpty
+                  ? const SliverFillRemaining(
+                      child: Center(child: Text('No posts yet.')))
+                  : SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, i) {
+                          final post = posts[i];
+                          final likes = List.from(post['likes'] ?? []);
+                          final comments =
+                              List.from(post['comments'] ?? []);
+                          final isLiked =
+                              likes.contains(_service.currentUid);
+                          final isOwner =
+                              post['uid'] == _service.currentUid;
+                          final mediaUrl = post['mediaUrl'] ?? '';
+                          final mediaType = post['mediaType'] ?? 'none';
+
+                          return Card(
+                            margin: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14)),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  // ── Author row ───────────────────
+                                  Row(
+                                    children: [
+                                      GestureDetector(
+                                        onTap: () {
+                                          if (!isOwner) {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      OtherProfilePage(
+                                                          uid: post[
+                                                              'uid'])),
+                                            );
+                                          }
+                                        },
+                                        child: _buildAvatar(
+                                            post['profile_pic']),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Text(post['name'] ?? 'Unknown',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold)),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+
+                                  // ── Text ─────────────────────────
+                                  if ((post['text'] ?? '').isNotEmpty)
+                                    Padding(
+                                      padding:
+                                          const EdgeInsets.only(bottom: 8),
+                                      child: Text(post['text']),
+                                    ),
+
+                                  // ── Media ─────────────────────────
+                                  if (mediaUrl.isNotEmpty &&
+                                      mediaType == 'image')
+                                    _PostImage(url: mediaUrl),
+                                  if (mediaUrl.isNotEmpty &&
+                                      mediaType == 'video')
+                                    _PostVideo(url: mediaUrl),
+
+                                  // ── Actions ───────────────────────
+                                  Row(
+                                    children: [
+                                      IconButton(
+                                        icon: Icon(
+                                          isLiked
+                                              ? Icons.favorite
+                                              : Icons.favorite_border,
+                                          color: isLiked
+                                              ? Colors.red
+                                              : Colors.grey,
+                                        ),
+                                        onPressed: () => _service
+                                            .likePost(post.id, likes),
+                                      ),
+                                      Text('${likes.length}'),
+                                      const SizedBox(width: 12),
+                                      IconButton(
+                                        icon: const Icon(
+                                            Icons.comment_outlined,
+                                            color: Colors.grey),
+                                        onPressed: () =>
+                                            _showComments(context, post),
+                                      ),
+                                      Text('${comments.length}'),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                        childCount: posts.length,
+                      ),
+                    ),
+            ],
           );
         },
       ),
@@ -234,6 +282,335 @@ class _HomePageState extends State<HomePage> {
       backgroundColor: Colors.deepPurple[100],
       radius: 18,
       child: const Icon(Icons.person, color: Colors.deepPurple, size: 18),
+    );
+  }
+}
+
+// ─── Stories row widget ───────────────────────────────────────────────────────
+
+class _StoriesRow extends StatelessWidget {
+  final AppService service;
+  final void Function(DocumentSnapshot story) onStoryTap;
+
+  const _StoriesRow({required this.service, required this.onStoryTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: service.getAllStories(),
+      builder: (context, snap) {
+        // Group stories by uid — one bubble per user (latest story)
+        final Map<String, DocumentSnapshot> byUser = {};
+        if (snap.hasData) {
+          for (final doc in snap.data!.docs) {
+            final uid = doc['uid'] as String;
+            if (!byUser.containsKey(uid)) byUser[uid] = doc;
+          }
+        }
+
+        return Container(
+          color: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 14, bottom: 8),
+                child: Text(
+                  'My Day',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.deepPurple[700],
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+              SizedBox(
+                height: 90,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  children: [
+                    // "Add Story" bubble (navigates to MyDayPage)
+                    _AddStoryBubble(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const MyDayPage()),
+                      ),
+                    ),
+
+                    // One bubble per user
+                    ...byUser.values.map((story) => _StoryBubble(
+                          story: story,
+                          isMe: story['uid'] == service.currentUid,
+                          onTap: () => onStoryTap(story),
+                        )),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AddStoryBubble extends StatelessWidget {
+  final VoidCallback onTap;
+  const _AddStoryBubble({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 5),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              children: [
+                CircleAvatar(
+                  radius: 30,
+                  backgroundColor: Colors.deepPurple[50],
+                  child: const Icon(Icons.add,
+                      color: Colors.deepPurple, size: 28),
+                ),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: const BoxDecoration(
+                      color: Colors.deepPurple,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.add,
+                        color: Colors.white, size: 12),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            const Text('Add',
+                style: TextStyle(fontSize: 11, color: Colors.deepPurple)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StoryBubble extends StatelessWidget {
+  final DocumentSnapshot story;
+  final bool isMe;
+  final VoidCallback onTap;
+
+  const _StoryBubble(
+      {required this.story, required this.isMe, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final profilePic = story['profile_pic'] ?? '';
+    final name = story['name'] ?? 'User';
+    final shortName = name.split(' ').first;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 5),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(2.5),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  colors: [Colors.deepPurple, Colors.purpleAccent],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: CircleAvatar(
+                  radius: 28,
+                  backgroundColor: Colors.deepPurple[100],
+                  backgroundImage: profilePic.isNotEmpty
+                      ? NetworkImage(profilePic)
+                      : null,
+                  child: profilePic.isEmpty
+                      ? Text(
+                          name.isNotEmpty
+                              ? name[0].toUpperCase()
+                              : '?',
+                          style: const TextStyle(
+                              color: Colors.deepPurple,
+                              fontWeight: FontWeight.bold),
+                        )
+                      : null,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            SizedBox(
+              width: 64,
+              child: Text(
+                isMe ? 'You' : shortName,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                style:
+                    const TextStyle(fontSize: 11, color: Colors.black87),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Full-screen story viewer ─────────────────────────────────────────────────
+
+class _StoryViewPage extends StatefulWidget {
+  final DocumentSnapshot story;
+  final AppService service;
+  const _StoryViewPage({required this.story, required this.service});
+
+  @override
+  State<_StoryViewPage> createState() => _StoryViewPageState();
+}
+
+class _StoryViewPageState extends State<_StoryViewPage> {
+  VideoPlayerController? _videoCtrl;
+  bool _videoReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.story['mediaType'] == 'video') {
+      _videoCtrl = VideoPlayerController.networkUrl(
+          Uri.parse(widget.story['url']))
+        ..initialize().then((_) {
+          if (mounted) {
+            setState(() => _videoReady = true);
+            _videoCtrl!.setLooping(true);
+            _videoCtrl!.play();
+          }
+        });
+    }
+  }
+
+  @override
+  void dispose() {
+    _videoCtrl?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final story = widget.story;
+    final mediaType = story['mediaType'] ?? 'image';
+    final url = story['url'] ?? '';
+    final caption = story['caption'] ?? '';
+    final name = story['name'] ?? '';
+    final profilePic = story['profile_pic'] ?? '';
+    final isMe = story['uid'] == widget.service.currentUid;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: GestureDetector(
+        onTap: () => Navigator.pop(context),
+        child: Stack(
+          children: [
+            // ── Media ──────────────────────────────────────────────
+            Center(
+              child: mediaType == 'image'
+                  ? Image.network(url, fit: BoxFit.contain)
+                  : _videoReady
+                      ? AspectRatio(
+                          aspectRatio: _videoCtrl!.value.aspectRatio,
+                          child: VideoPlayer(_videoCtrl!),
+                        )
+                      : const CircularProgressIndicator(
+                          color: Colors.white),
+            ),
+
+            // ── Author bar ─────────────────────────────────────────
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundColor: Colors.deepPurple[100],
+                      backgroundImage: profilePic.isNotEmpty
+                          ? NetworkImage(profilePic)
+                          : null,
+                      child: profilePic.isEmpty
+                          ? Text(name.isNotEmpty ? name[0] : '?',
+                              style:
+                                  const TextStyle(color: Colors.deepPurple))
+                          : null,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      isMe ? 'You' : name,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14),
+                    ),
+                    const Spacer(),
+                    // Delete button for own stories
+                    if (isMe)
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline,
+                            color: Colors.white70),
+                        onPressed: () async {
+                          await widget.service.deleteStory(story.id);
+                          if (context.mounted) Navigator.pop(context);
+                        },
+                      ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // ── Caption ────────────────────────────────────────────
+            if (caption.isNotEmpty)
+              Positioned(
+                bottom: 40,
+                left: 16,
+                right: 16,
+                child: Text(
+                  caption,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    shadows: [Shadow(blurRadius: 8, color: Colors.black)],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -268,8 +645,8 @@ class _PostImage extends StatelessWidget {
         errorBuilder: (_, __, ___) => Container(
           height: 120,
           color: Colors.grey[200],
-          child: const Center(
-              child: Icon(Icons.broken_image, color: Colors.grey)),
+          child:
+              const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
         ),
       ),
     );
@@ -362,8 +739,7 @@ class _PostVideoState extends State<_PostVideo> {
             bufferedColor: Colors.white38,
             backgroundColor: Colors.black26,
           ),
-          padding:
-              const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
         ),
       ],
     );
